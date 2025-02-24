@@ -1,87 +1,123 @@
-import sys
+import tkinter as tk
+from tkinter import messagebox
+import mysql.connector
+
+# Function to connect to MySQL database
+def connect_to_db():
+    conn = mysql.connector.connect(
+        host="localhost",  # Replace with your MySQL host (usually localhost)
+        user="root",  # Replace with your MySQL username
+        password="24Anshik@",  # Replace with your MySQL password
+        database="student_management"  # Ensure the database name matches your MySQL database
+    )
+    return conn
 
 
-def display_menu():
-    print("\nStudent Management System Menu:")
-    print("1. View All Students")
-    print("2. Add Student")
-    print("3. Update Student")
-    print("4. Delete Student")
-    print("5. Exit")
+# Function to add a student to the database
+def add_student():
+    conn = connect_to_db()
+    cursor = conn.cursor()
 
+    name = name_entry.get()
+    age = age_entry.get()
+    grade = grade_entry.get()
 
-def view_students(students):
-    if not students:
-        print("\nNo students in the system.")
+    if name and age and grade:
+        sql = "INSERT INTO students (name, age, grade) VALUES (%s, %s, %s)"
+        values = (name, age, grade)
+        cursor.execute(sql, values)
+        conn.commit()
+        messagebox.showinfo("Success", f"Student {name} added successfully!")
+        clear_entries()
     else:
-        print("\nList of Students:")
-        for student_id, student_info in students.items():
-            print(
-                f"ID: {student_id}, Name: {student_info['name']}, Age: {student_info['age']}, Grade: {student_info['grade']}")
+        messagebox.showerror("Error", "Please fill in all fields")
+
+    cursor.close()
+    conn.close()
 
 
-def add_student(students):
-    student_id = input("\nEnter Student ID: ")
-    if student_id in students:
-        print("Student ID already exists.")
+# Function to view all students
+def view_students():
+    conn = connect_to_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM students")
+    rows = cursor.fetchall()
+
+    student_list.delete(0, tk.END)  # Clear previous list
+
+    if rows:
+        for row in rows:
+            student_list.insert(tk.END, f"ID: {row[0]}, Name: {row[1]}, Age: {row[2]}, Grade: {row[3]}")
     else:
-        name = input("Enter Student Name: ")
-        age = input("Enter Student Age: ")
-        grade = input("Enter Student Grade: ")
-        students[student_id] = {'name': name, 'age': age, 'grade': grade}
-        print(f"Student {name} added successfully.")
+        student_list.insert(tk.END, "No students found.")
+
+    cursor.close()
+    conn.close()
 
 
-def update_student(students):
-    student_id = input("\nEnter Student ID to update: ")
-    if student_id not in students:
-        print("Student ID not found.")
-    else:
-        name = input("Enter new name (leave blank to keep current): ")
-        age = input("Enter new age (leave blank to keep current): ")
-        grade = input("Enter new grade (leave blank to keep current): ")
+# Function to delete a student
+def delete_student():
+    conn = connect_to_db()
+    cursor = conn.cursor()
 
-        if name:
-            students[student_id]['name'] = name
-        if age:
-            students[student_id]['age'] = age
-        if grade:
-            students[student_id]['grade'] = grade
+    selected_student = student_list.get(tk.ACTIVE)
+    if not selected_student:
+        messagebox.showerror("Error", "No student selected")
+        return
 
-        print(f"Student ID {student_id} updated successfully.")
+    student_id = selected_student.split(",")[0].split(":")[1].strip()
 
+    confirm = messagebox.askyesno("Confirm", f"Are you sure you want to delete student ID {student_id}?")
+    if confirm:
+        sql = "DELETE FROM students WHERE student_id = %s"
+        cursor.execute(sql, (student_id,))
+        conn.commit()
+        messagebox.showinfo("Success", f"Student ID {student_id} deleted successfully!")
+        view_students()  # Refresh student list
 
-def delete_student(students):
-    student_id = input("\nEnter Student ID to delete: ")
-    if student_id not in students:
-        print("Student ID not found.")
-    else:
-        del students[student_id]
-        print(f"Student ID {student_id} deleted successfully.")
+    cursor.close()
+    conn.close()
 
 
-def main():
-    students = {}
-
-    while True:
-        display_menu()
-
-        choice = input("\nEnter your choice: ")
-
-        if choice == '1':
-            view_students(students)
-        elif choice == '2':
-            add_student(students)
-        elif choice == '3':
-            update_student(students)
-        elif choice == '4':
-            delete_student(students)
-        elif choice == '5':
-            print("Exiting the Student Management System. Goodbye!")
-            sys.exit()
-        else:
-            print("Invalid choice. Please try again.")
+# Function to clear input fields
+def clear_entries():
+    name_entry.delete(0, tk.END)
+    age_entry.delete(0, tk.END)
+    grade_entry.delete(0, tk.END)
 
 
-if __name__ == "__main__":
-    main()
+# GUI Setup
+root = tk.Tk()
+root.title("Student Management System")
+
+# Labels and Entry Widgets for Student Information
+tk.Label(root, text="Name").grid(row=0, column=0)
+name_entry = tk.Entry(root)
+name_entry.grid(row=0, column=1)
+
+tk.Label(root, text="Age").grid(row=1, column=0)
+age_entry = tk.Entry(root)
+age_entry.grid(row=1, column=1)
+
+tk.Label(root, text="Grade").grid(row=2, column=0)
+grade_entry = tk.Entry(root)
+grade_entry.grid(row=2, column=1)
+
+# Buttons for operations
+add_button = tk.Button(root, text="Add Student", command=add_student)
+add_button.grid(row=3, column=0, columnspan=2)
+
+view_button = tk.Button(root, text="View Students", command=view_students)
+view_button.grid(row=4, column=0, columnspan=2)
+
+delete_button = tk.Button(root, text="Delete Student", command=delete_student)
+delete_button.grid(row=5, column=0, columnspan=2)
+
+# Listbox to display students
+student_list = tk.Listbox(root, width=50, height=10)
+student_list.grid(row=6, column=0, columnspan=2)
+
+# Run the application
+root.mainloop()
+
